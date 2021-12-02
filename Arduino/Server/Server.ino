@@ -137,13 +137,13 @@ void setup()
     carrier.display.print(device_name);
     delay(1000);
 
-//    configure();
-//    touchpage();
-//    sensorsPage();
-//    actuatorsPage();
+    //    configure();
+    //    touchpage();
+    //    sensorsPage();
+    //    actuatorsPage();
 
-        initWifi();
-        printWiFiStatus();
+    initWifi();
+    printWiFiStatus();
   } else {
     myFile = SD.open("SSID.txt", FILE_WRITE);
     myFile.print("");
@@ -174,15 +174,28 @@ void loop()
     if (status == WL_AP_CONNECTED) {
       // a device has connected to the AP
       Serial.println("Device connected to AP");
+      carrier.display.fillScreen(0x0000);
+      printWiFiStatus();
+      carrier.display.setCursor(0, 120);
+      carrier.display.print("We connected");
     } else {
       // a device has disconnected from the AP, and we are back in listening mode
       Serial.println("Device disconnected from AP");
+      carrier.display.fillScreen(0x0000);
+      printWiFiStatus();
+      carrier.display.setCursor(0, 120);
+      carrier.display.print("We not connected");
     }
   }
   client = server.available();
   if (client) {
-    newClient();
+    carrier.display.fillScreen(0x0000);
+    printWiFiStatus();
+    carrier.display.setCursor(0, 80);
+    carrier.display.print("Client");
+    //    newClient();
   }
+  delay(100);
 }
 
 void configure()
@@ -664,6 +677,10 @@ void initWifi() {
   Serial.print("Creating access point named: ");
   Serial.println(ssid);
 
+  IPAddress ip(192, 168, 0, 1);
+
+  WiFi.config(ip);
+
   status = WiFi.beginAP(ssid, pass);
   if (status != WL_AP_LISTENING) {
     Serial.println("Creating access point failed");
@@ -738,9 +755,3 @@ void newClient() {
   // close the connection:
   client.stop();
 }
-
-//void append(char[] s, char c) {
-//  int len = strlen(s);
-//  s[len] = c;
-//  s[len + 1] = '\0';
-//}
