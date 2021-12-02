@@ -19,6 +19,8 @@ MKRIoTCarrier carrier;
 
 String state = "start";
 
+String device_name;
+
 int count = 3;
 uint32_t colorRed = carrier.leds.Color(0, 200, 0);
 uint32_t colorGreen = carrier.leds.Color(200, 0, 0);
@@ -83,73 +85,82 @@ void setup()
   carrier.display.setCursor(30, 60);
 
   // open the file for reading:
-  if (SD.exists("Wifi.txt")) {
-    myFile = SD.open("Wifi.txt");
-    Serial.println("file opened");
+  if (SD.exists("SSID.txt") && SD.exists("PSWD.txt") && SD.exists("NAME.txt")) {
+    myFile = SD.open("SSID.txt");
+    Serial.println("SSID opened");
+    String SD_data = "";
     while (myFile.available()) {
-      char ltr = myFile.read();
-      if (ltr == 10) {
-        sd_card_raw = sd_card_raw.substring(5);
-        int str_len = sd_card_raw.length() + 1;
-        char sd_card_char[str_len];
-
-        if (sd_card_raw.length() < 8) {
-          carrier.display.fillScreen(0x0000);
-          carrier.display.setCursor(0, 60);
-          carrier.display.println("make SSID length more than 8 chars");
-          while (1);
-        }
-
-        sd_card_raw.toCharArray(sd_card_char, str_len);
-        strcat(ssid, sd_card_char);
-        sd_card_raw = "";
-        carrier.display.setCursor(30, 90);
-      } else {
-        sd_card_raw += ltr;
-        carrier.display.print(ltr);
-      }
-      delay(50);
+      SD_data += char(myFile.read());
     }
-    sd_card_raw = sd_card_raw.substring(5);
-    int str_len = sd_card_raw.length() + 1;
-    char sd_card_char[str_len];
+    int str_len = SD_data.length() + 1;
+    char SD_char[str_len];
+    SD_data.toCharArray(SD_char, str_len);
+    strcat(ssid, SD_char);
 
-    if (sd_card_raw.length() < 8) {
+    if (String(ssid).length() < 8) {
       carrier.display.fillScreen(0x0000);
       carrier.display.setCursor(0, 60);
-      carrier.display.println(sd_card_raw.length());
-//      carrier.display.println("make PASSWORD length more than 8 chars");
+      carrier.display.println("Make SSID length more than 8 chars");
       while (1);
     }
 
-    sd_card_raw.toCharArray(sd_card_char, str_len);
-    strcat(pass, sd_card_char);
-    myFile.close();
+    myFile = SD.open("PSWD.txt");
+    Serial.println("PSWD opened");
+    SD_data = "";
+    while (myFile.available()) {
+      SD_data += char(myFile.read());
+    }
+    str_len = SD_data.length() + 1;
+    SD_char[str_len];
+    SD_data.toCharArray(SD_char, str_len);
+    strcat(pass, SD_char);
+
+    if (String(pass).length() < 8) {
+      carrier.display.fillScreen(0x0000);
+      carrier.display.setCursor(0, 60);
+      carrier.display.println("Make PASSWORD length more than 8 chars");
+      while (1);
+    }
+
+    myFile = SD.open("NAME.txt");
+    Serial.println("NAME opened");
+    while (myFile.available()) {
+      device_name += char(myFile.read());
+    }
 
     carrier.display.fillScreen(0x0000);
-    carrier.display.setCursor(30, 60);
+    carrier.display.setCursor(0, 0);
     carrier.display.print(ssid);
-    carrier.display.setCursor(30, 90);
+    carrier.display.setCursor(0, 30);
     carrier.display.print(pass);
+    carrier.display.setCursor(0, 60);
+    carrier.display.print(device_name);
     delay(1000);
 
-    //    configure();
-    //    touchpage();
-    //  sensorsPage();
-    //  actuatorsPage();
+//    configure();
+//    touchpage();
+//    sensorsPage();
+//    actuatorsPage();
 
-    initWifi();
-    printWiFiStatus();
+        initWifi();
+        printWiFiStatus();
   } else {
-    myFile = SD.open("Wifi.txt", FILE_WRITE);
-
-    myFile.println("SSID: Insert SSID");
-    myFile.print("PSWD: Insert PSWD");
-
+    myFile = SD.open("SSID.txt", FILE_WRITE);
+    myFile.print("");
     myFile.close();
+
+    myFile = SD.open("PSWD.txt", FILE_WRITE);
+    myFile.print("");
+    myFile.close();
+
+    myFile = SD.open("NAME.txt", FILE_WRITE);
+    myFile.print("SAMANTHA");
+    myFile.close();
+
     Serial.println("done.");
     carrier.display.setCursor(0, 30);
-    carrier.display.println("Update the SSID and PSWD in the Wifi.txt file in the SD card");
+    carrier.display.println("Write the SSID in the SSID.txt and PASSWORD in the PSWD.txt");
+    carrier.display.print("Write the name of the device in the NAME.txt");
     while (1);
   }
 }
@@ -623,7 +634,7 @@ void printWiFiStatus() {
   carrier.display.setTextColor(0xFFFF);
   carrier.display.setTextSize(2);
 
-carrier.display.setCursor(0, 30);
+  carrier.display.setCursor(0, 30);
   carrier.display.print("SSID: ");
   carrier.display.print(WiFi.SSID());
 
@@ -707,10 +718,8 @@ void newClient() {
           // the content of the HTTP response follows the header:
           client.print("Click <a href=\"/H\">here</a> turn the LED on<br>");
           client.print("Click <a href=\"/L\">here</a> turn the LED off<br>");
-
-          int randomReading = analogRead(A1);
           client.print("Random reading from analog pin: ");
-          client.print(randomReading);
+          //          client.print(randomReading);
 
           // The HTTP response ends with another blank line:
           client.println();
@@ -729,3 +738,9 @@ void newClient() {
   // close the connection:
   client.stop();
 }
+
+//void append(char[] s, char c) {
+//  int len = strlen(s);
+//  s[len] = c;
+//  s[len + 1] = '\0';
+//}
