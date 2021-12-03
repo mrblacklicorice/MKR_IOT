@@ -61,6 +61,10 @@ void setup()
 {
   CARRIER_CASE = false;
   Serial.begin(9600);
+
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for native USB
+  }
   delay(2500);
   Serial.println("Turning on");
 
@@ -167,35 +171,37 @@ void setup()
 
 void loop()
 {
+  carrier.display.setTextColor(0xFFFF);
   if (status != WiFi.status()) {
     // it has changed update the variable
     status = WiFi.status();
 
     if (status == WL_AP_CONNECTED) {
-      // a device has connected to the AP
       Serial.println("Device connected to AP");
-      carrier.display.fillScreen(0x0000);
-      printWiFiStatus();
+      carrier.display.setTextColor(0x0000);
+      carrier.display.setCursor(0, 120);
+      carrier.display.print("            ");
       carrier.display.setCursor(0, 120);
       carrier.display.print("We connected");
     } else {
-      // a device has disconnected from the AP, and we are back in listening mode
       Serial.println("Device disconnected from AP");
-      carrier.display.fillScreen(0x0000);
-      printWiFiStatus();
+      carrier.display.setTextColor(0x0000);
+      carrier.display.setCursor(0, 120);
+      carrier.display.print("                ");
       carrier.display.setCursor(0, 120);
       carrier.display.print("We not connected");
     }
   }
+  
   client = server.available();
   if (client) {
-    carrier.display.fillScreen(0x0000);
-    printWiFiStatus();
-    carrier.display.setCursor(0, 80);
+    carrier.display.setCursor(0, 150);
     carrier.display.print("Client");
-    //    newClient();
+    newClient();
+    carrier.display.setTextColor(0x0000);
+    carrier.display.setCursor(0, 150);
+    carrier.display.print("          ");
   }
-  delay(100);
 }
 
 void configure()
@@ -652,7 +658,7 @@ void printWiFiStatus() {
   carrier.display.print(WiFi.SSID());
 
   carrier.display.setCursor(0, 60);
-  carrier.display.print("IP: http://");
+  carrier.display.print("http://");
   carrier.display.print(ip);
 
 }
@@ -677,7 +683,7 @@ void initWifi() {
   Serial.print("Creating access point named: ");
   Serial.println(ssid);
 
-  IPAddress ip(192, 168, 0, 1);
+  IPAddress ip(192, 168, 10, 1);
 
   WiFi.config(ip);
 
