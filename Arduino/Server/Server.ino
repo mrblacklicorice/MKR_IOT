@@ -5,7 +5,6 @@
 #include <WiFiNINA.h>
 
 char ssid[] = "";        // your network SSID (name)
-char pass[] = "";    // your network password (use for WPA, or use as key for WEP)
 int keyIndex = 0;                // your network key Index number (needed only for WEP)
 
 int status = WL_IDLE_STATUS;
@@ -68,28 +67,29 @@ void setup()
   delay(2500);
   Serial.println("Turning on");
 
-  if (!carrier.begin())
-  {
-    Serial.println("Carrier not connected, check connections");
-    //    while (1);
-  }
-
-  if (!SD.begin(SD_CS)) {
-    Serial.println("initialization failed!");
-    //    while (1);
-  }
-
-  Serial.println("initialization done.");
-
   carrier.display.setRotation(0);
   carrier.display.setTextWrap(true);
   carrier.display.setTextColor(0xFFFF);
   carrier.display.setTextSize(2);
   carrier.display.fillScreen(0x0000);
-  carrier.display.setCursor(30, 60);
+
+  if (!carrier.begin())
+  {
+    Serial.println("Carrier not connected, check connections");
+    //        while (1);
+  }
+
+  if (!SD.begin(SD_CS)) {
+    Serial.println("initialization failed!");
+    carrier.display.setCursor(0, 30);
+    carrier.display.print("initialization failed!");
+    while (1);
+  }
+
+  Serial.println("initialization done.");
 
   // open the file for reading:
-  if (SD.exists("SSID.txt") && SD.exists("PSWD.txt") && SD.exists("NAME.txt")) {
+  if (SD.exists("SSID.txt") && SD.exists("NAME.txt")) {
     myFile = SD.open("SSID.txt");
     Serial.println("SSID opened");
     String SD_data = "";
@@ -108,24 +108,6 @@ void setup()
       while (1);
     }
 
-    myFile = SD.open("PSWD.txt");
-    Serial.println("PSWD opened");
-    SD_data = "";
-    while (myFile.available()) {
-      SD_data += char(myFile.read());
-    }
-    str_len = SD_data.length() + 1;
-    SD_char[str_len];
-    SD_data.toCharArray(SD_char, str_len);
-    strcat(pass, SD_char);
-
-    if (String(pass).length() < 8) {
-      carrier.display.fillScreen(0x0000);
-      carrier.display.setCursor(0, 60);
-      carrier.display.println("Make PASSWORD length more than 8 chars");
-      while (1);
-    }
-
     myFile = SD.open("NAME.txt");
     Serial.println("NAME opened");
     while (myFile.available()) {
@@ -136,8 +118,6 @@ void setup()
     carrier.display.setCursor(0, 0);
     carrier.display.print(ssid);
     carrier.display.setCursor(0, 30);
-    carrier.display.print(pass);
-    carrier.display.setCursor(0, 60);
     carrier.display.print(device_name);
     delay(1000);
 
@@ -150,10 +130,6 @@ void setup()
     printWiFiStatus();
   } else {
     myFile = SD.open("SSID.txt", FILE_WRITE);
-    myFile.print("");
-    myFile.close();
-
-    myFile = SD.open("PSWD.txt", FILE_WRITE);
     myFile.print("");
     myFile.close();
 
@@ -192,12 +168,14 @@ void loop()
       carrier.display.print("We not connected");
     }
   }
-  
+
   client = server.available();
   if (client) {
     carrier.display.setCursor(0, 150);
     carrier.display.print("Client");
     newClient();
+
+  } else {
     carrier.display.setTextColor(0x0000);
     carrier.display.setCursor(0, 150);
     carrier.display.print("          ");
@@ -687,7 +665,7 @@ void initWifi() {
 
   WiFi.config(ip);
 
-  status = WiFi.beginAP(ssid, pass);
+  status = WiFi.beginAP(ssid);
   if (status != WL_AP_LISTENING) {
     Serial.println("Creating access point failed");
     carrier.display.fillScreen(0x0000);

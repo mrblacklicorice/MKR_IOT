@@ -3,9 +3,10 @@
 #include "pitches.h"
 #include <SPI.h>
 #include <WiFiNINA.h>
+#include <LinkedList.h>
 
 char ssid[] = "";        // your network SSID (name)
-char pass[] = "";    // your network password (use for WPA, or use as key for WEP)
+LinkedList<String> wifi_list;
 int keyIndex = 0;                // your network key Index number (needed only for WEP)
 
 int status = WL_IDLE_STATUS;
@@ -18,6 +19,8 @@ int ledPin = 2;
 MKRIoTCarrier carrier;
 
 String state = "start";
+
+String device_name;
 
 int count = 3;
 uint32_t colorRed = carrier.leds.Color(0, 200, 0);
@@ -41,7 +44,7 @@ void touchpage();
 void sensorsPage();
 void connectorsPage();
 void actuatorsPage();
-void printWifiStatus();
+void c_arr();
 
 //Declare their flags
 bool touchCheckCompleted = false;
@@ -59,103 +62,91 @@ void setup()
 {
   CARRIER_CASE = false;
   Serial.begin(9600);
+
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for native USB
+  }
   delay(2500);
   Serial.println("Turning on");
-
-  if (!carrier.begin())
-  {
-    Serial.println("Carrier not connected, check connections");
-    //    while (1);
-  }
-
-  if (!SD.begin(SD_CS)) {
-    Serial.println("initialization failed!");
-    //    while (1);
-  }
-
-  Serial.println("initialization done.");
 
   carrier.display.setRotation(0);
   carrier.display.setTextWrap(true);
   carrier.display.setTextColor(0xFFFF);
   carrier.display.setTextSize(2);
   carrier.display.fillScreen(0x0000);
-  carrier.display.setCursor(30, 60);
+
+  if (!carrier.begin())
+  {
+    Serial.println("Carrier not connected, check connections");
+    //        while (1);
+  }
+
+  if (!SD.begin(SD_CS)) {
+    Serial.println("initialization failed!");
+    carrier.display.setCursor(0, 30);
+    carrier.display.print("initialization failed!");
+    while (1);
+  }
+
+  Serial.println("initialization done.");
 
   // open the file for reading:
-  if (SD.exists("Wifi.txt")) {
-    myFile = SD.open("Wifi.txt");
-    Serial.println("file opened");
+  if (SD.exists("SSID.txt") && SD.exists("NAME.txt")) {
+    myFile = SD.open("SSID.txt");
+    Serial.println("SSID opened");
+    String SD_data = "";
+
     while (myFile.available()) {
       char ltr = myFile.read();
       if (ltr == 10) {
-        sd_card_raw = sd_card_raw.substring(5);
-        int str_len = sd_card_raw.length() + 1;
-        char sd_card_char[str_len];
-
-        sd_card_raw.toCharArray(sd_card_char, str_len);
-        strcat(ssid, sd_card_char);
-        sd_card_raw = "";
-        carrier.display.setCursor(30, 90);
+        wifi_list.add(SD_data);
       } else {
-        sd_card_raw += ltr;
-        carrier.display.print(ltr);
+        SD_data += char(myFile.read());
       }
-      delay(50);
     }
-    sd_card_raw = sd_card_raw.substring(5);
-    int str_len = sd_card_raw.length() + 1;
-    char sd_card_char[str_len];
+    wifi_list.add(SD_data);
 
-    sd_card_raw.toCharArray(sd_card_char, str_len);
-    strcat(pass, sd_card_char);
-    myFile.close();
+
+
+    myFile = SD.open("NAME.txt");
+    Serial.println("NAME opened");
+    while (myFile.available()) {
+      device_name += char(myFile.read());
+    }
 
     carrier.display.fillScreen(0x0000);
-    carrier.display.setCursor(30, 60);
-    carrier.display.println(ssid);
-    carrier.display.println(pass);
+//    carrier.display.setCursor(0, 0);
+//    carrier.display.print(ssid);
+    carrier.display.setCursor(0, 30);
+    carrier.display.print(device_name);
     delay(1000);
 
-    configure();
-    touchpage();
-    //  sensorsPage();
-    //  actuatorsPage();
-
-    //  initWifi();
-    //  printWiFiStatus();
+    //    configure();
+    //    touchpage();
+    //    sensorsPage();
+    //    actuatorsPage();
   } else {
-    myFile = SD.open("Wifi.txt", FILE_WRITE);
-
-    myFile.println("SSID: Insert SSID");
-    myFile.println("PSWD: Insert PSWD");
-
+    myFile = SD.open("SSID.txt", FILE_WRITE);
+    myFile.print("");
     myFile.close();
+
+    myFile = SD.open("NAME.txt", FILE_WRITE);
+    myFile.print("SAMANTHA");
+    myFile.close();
+
     Serial.println("done.");
     carrier.display.setCursor(0, 30);
-    carrier.display.println("Update the SSID and PSWD in the Wifi.txt file in the SD card");
+    carrier.display.println("Write the SSID in the SSID.txt and PASSWORD in the PSWD.txt");
+    carrier.display.print("Write the name of the device in the NAME.txt");
     while (1);
   }
 }
 
 void loop()
 {
-  if (status != WiFi.status()) {
-    // it has changed update the variable
-    status = WiFi.status();
-
-    if (status == WL_AP_CONNECTED) {
-      // a device has connected to the AP
-      Serial.println("Device connected to AP");
-    } else {
-      // a device has disconnected from the AP, and we are back in listening mode
-      Serial.println("Device disconnected from AP");
-    }
-  }
-  client = server.available();
-  if (client) {
-
-  }
+  carrier.display.setTextColor(0xFFFF);
+listNetworks();
+delay(10000);
 }
 
 void configure()
@@ -589,117 +580,77 @@ void actuatorsPage()
   }
 }
 
-void printWiFiStatus() {
-  // print the SSID of the network you're attached to:
-  Serial.print("SSID: ");
-  Serial.println(WiFi.SSID());
 
-  // print your WiFi shield's IP address:
-  IPAddress ip = WiFi.localIP();
-  Serial.print("IP Address: ");
-  Serial.println(ip);
+void listNetworks() {
+  Serial.println("** Scan Networks **");
+  int numSsid = WiFi.scanNetworks();
 
-  // print where to go in a browser:
-  Serial.print("To see this page in action, open a browser to http://");
-  Serial.println(ip);
-
-}
-
-void initWifi() {
-  Serial.println("Access Point Web Server");
-
-  // check for the WiFi module:
-  if (WiFi.status() == WL_NO_MODULE) {
-    Serial.println("Communication with WiFi module failed!");
+  if (numSsid == -1) {
+    Serial.println("Couldn't get a wifi connection");
     while (true);
   }
 
-  String fv = WiFi.firmwareVersion();
-  if (fv < WIFI_FIRMWARE_LATEST_VERSION) {
-    Serial.println("Please upgrade the firmware");
-  }
+  Serial.print("number of available networks:");
+  Serial.println(numSsid);
 
-  Serial.print("Creating access point named: ");
-  Serial.println(ssid);
+  for (int thisNet = 0; thisNet < numSsid; thisNet++) {
+    Serial.print(thisNet);
+    Serial.print(") ");
+    Serial.print(WiFi.SSID(thisNet));
+    Serial.print("\tSignal: ");
+    Serial.print(WiFi.RSSI(thisNet));
+    Serial.print(" dBm");
+    Serial.print("\tEncryption: ");
+    printEncryptionType(WiFi.encryptionType(thisNet));
 
-  status = WiFi.beginAP(ssid, pass);
-  if (status != WL_AP_LISTENING) {
-    Serial.println("Creating access point failed");
-    while (true);
-  }
-
-  // wait 10 seconds for connection:
-  delay(10000);
-
-  // start the web server on port 80
-  server.begin();
-}
-
-void checkWifi() {
-  if (status != WiFi.status()) {
-    // it has changed, so update the variable
-    status = WiFi.status();
-
-    if (status == WL_AP_CONNECTED) {
-      byte remoteMac[6];
-
-      // a device has connected to the AP
-      Serial.print("Device connected to AP, MAC address: ");
-    } else {
-      // a device has disconnected from the AP, and we are back in listening mode
-      Serial.println("Device disconnected from AP");
-    }
   }
 }
 
-void newClient() {
-    Serial.println("new client");           // print a message out the serial port
-    String currentLine = "";                // make a String to hold incoming data from the client
-    while (client.connected()) {            // loop while the client's connected
-      if (client.available()) {             // if there's bytes to read from the client,
-        char c = client.read();             // read a byte, then
-        Serial.write(c);                    // print it out the serial monitor
-        if (c == '\n') {                    // if the byte is a newline character
+void printEncryptionType(int thisType) {
+  switch (thisType) {
+    case ENC_TYPE_WEP:
+      Serial.println("WEP");
+      break;
 
-          // if the current line is blank, you got two newline characters in a row.
-          // that's the end of the client HTTP request, so send a response:
-          if (currentLine.length() == 0) {
-            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
-            // and a content-type so the client knows what's coming, then a blank line:
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-type:text/html");
-            client.println();
+    case ENC_TYPE_TKIP:
+      Serial.println("WPA");
+      break;
 
-            // the content of the HTTP response follows the header:
-            client.print("Click <a href=\"/H\">here</a> turn the LED on<br>");
-            client.print("Click <a href=\"/L\">here</a> turn the LED off<br>");
+    case ENC_TYPE_CCMP:
+      Serial.println("WPA2");
+      break;
 
-            int randomReading = analogRead(A1);
-            client.print("Random reading from analog pin: ");
-            client.print(randomReading);
+    case ENC_TYPE_NONE:
+      Serial.println("None");
+      break;
 
-            // The HTTP response ends with another blank line:
-            client.println();
-            // break out of the while loop:
-            break;
-          }
-          else {      // if you got a newline, then clear currentLine:
-            currentLine = "";
-          }
-        }
-        else if (c != '\r') {    // if you got anything else but a carriage return character,
-          currentLine += c;      // add it to the end of the currentLine
-        }
+    case ENC_TYPE_AUTO:
+      Serial.println("Auto");
+      break;
 
-        // Check to see if the client request was "GET /H" or "GET /L":
-        if (currentLine.endsWith("GET /H")) {
-          digitalWrite(led, HIGH);               // GET /H turns the LED on
-        }
-        if (currentLine.endsWith("GET /L")) {
-          digitalWrite(led, LOW);                // GET /L turns the LED off
-        }
-      }
+    case ENC_TYPE_UNKNOWN:
+    default:
+      Serial.println("Unknown");
+      break;
+  }
+}
+
+void printMacAddress(byte mac[]) {
+  for (int i = 5; i >= 0; i--) {
+    if (mac[i] < 16) {
+      Serial.print("0");
     }
-    // close the connection:
-    client.stop();
+    Serial.print(mac[i], HEX);
+    if (i > 0) {
+      Serial.print(":");
+    }
+  }
+  Serial.println();
+}
+
+void c_arr(String init_str, char* fin_arr) {
+  int str_len = init_str.length() + 1;
+  char str_char[str_len];
+  init_str.toCharArray(str_char, str_len);
+  strcat(fin_arr, str_char);
 }
