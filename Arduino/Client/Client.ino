@@ -304,7 +304,9 @@ void listNetworks() {
   carrier.display.fillScreen(0x0000);
   carrier.display.setTextSize(3);
 
-  wifi[5] = { -1, -1, -1, -1, -1};
+  for (int c = 0; c < 5; c++) {
+    wifi[c] = -1;
+  }
 
   Serial.print("number of available networks:");
   Serial.println(numSsid);
@@ -320,7 +322,7 @@ void listNetworks() {
       carrier.display.setTextSize(3);
 
       carrier.display.setCursor(0 * count, 0);
-      carrier.display.print(count + " - " + Wifi.SSID(thisNet));
+      carrier.display.print(count + " - " + WiFi.SSID(thisNet));
     }
   }
   touchCheckCompleted = false;
@@ -329,36 +331,36 @@ void listNetworks() {
     carrier.Buttons.update();
     if (carrier.Buttons.onTouchDown(TOUCH0))
     {
-      WiFi.begin(Wifi.SSID(wifi[0]));
+      WiFi.begin(WiFi.SSID(wifi[0]));
       carrier.leds.setPixelColor(0, colorGreen);
     }
     else if (carrier.Buttons.onTouchUp(TOUCH1))
     {
-       WiFi.begin(Wifi.SSID(wifi[1]));
+      WiFi.begin(WiFi.SSID(wifi[1]));
       carrier.leds.setPixelColor(1, colorGreen);
     }
     else if (carrier.Buttons.getTouch(TOUCH2))
     {
-       WiFi.begin(Wifi.SSID(wifi[2]));
+      WiFi.begin(WiFi.SSID(wifi[2]));
       carrier.leds.setPixelColor(2, colorGreen);
     }
     else if (carrier.Buttons.onTouchUp(TOUCH3))
     {
-       WiFi.begin(Wifi.SSID(wifi[3]));
+      WiFi.begin(WiFi.SSID(wifi[3]));
       carrier.leds.setPixelColor(3, colorGreen);
     }
     else if (carrier.Buttons.onTouchDown(TOUCH4))
     {
-       WiFi.begin(Wifi.SSID(wifi[4]));
+      WiFi.begin(WiFi.SSID(wifi[4]));
       carrier.leds.setPixelColor(4, colorGreen);
     }
     carrier.leds.show();
   }
 
-  bool connectWifi(int thisNet) {
-    if (WiFi.scanNetworks() > thisNet && WiFi.encryptionType(thisNet) == ENC_TYPE_NONE && SD.exists(Wifi.SSID(thisNet))) {
+  bool connectWiFi(int thisNet) {
+    if (WiFi.scanNetworks() > thisNet && WiFi.encryptionType(thisNet) == ENC_TYPE_NONE && SD.exists(WiFi.SSID(thisNet))) {
 
-      WiFi.begin(Wifi.SSID(thisNet));
+      WiFi.begin(WiFi.SSID(thisNet));
 
       carrier.display.setTextColor(0xFFFF);
       carrier.display.setTextSize(5);
@@ -368,7 +370,7 @@ void listNetworks() {
       carrier.display.setTextColor(0x0000);
       carrier.display.setTextSize(3);
       carrier.display.setCursor(2, 0);
-      carrier.display.print(Wifi.SSID(thisNet));
+      carrier.display.print(WiFi.SSID(thisNet));
       return true;
     } else {
       return false;
