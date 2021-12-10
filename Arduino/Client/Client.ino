@@ -3,11 +3,11 @@
 #include "pitches.h"
 #include <SPI.h>
 #include <WiFiNINA.h>
-//#include <LinkedList.h>
 
 char ssid[] = "";        // your network SSID (name)
-//LinkedList<String> wifi_list;
 int keyIndex = 0;                // your network key Index number (needed only for WEP)
+int wifi[5] = { -1, -1, -1, -1, -1};
+int curr_wifi = -1;
 
 MKRIoTCarrier carrier;
 
@@ -32,6 +32,8 @@ int noteDurations[] = {
 void configure();
 void touchpage();
 void actuatorsPage();
+bool connectWifi(int thisNet);
+void listNetworks();
 //void c_arr();
 
 //Declare their flags
@@ -44,16 +46,14 @@ bool relay2CheckCompleted = false;
 
 File myFile;
 
-String sd_card_raw = "";
-
 void setup()
 {
   CARRIER_CASE = false;
   Serial.begin(9600);
 
-//  while (!Serial) {
-//    ; // wait for serial port to connect. Needed for native USB
-//  }
+  //  while (!Serial) {
+  //    ; // wait for serial port to connect. Needed for native USB
+  //  }
   delay(2500);
   Serial.println("Turning on");
 
@@ -77,58 +77,45 @@ void setup()
 
   Serial.println("initialization done.");
 
-  // open the file for reading:
-  //  if (SD.exists("SSID.txt") && SD.exists("NAME.txt")) {
-  //    myFile = SD.open("SSID.txt");
-  //    Serial.println("SSID opened");
-  //    String SD_data = "";
-  //
-  //    while (myFile.available()) {
-  //      char ltr = myFile.read();
-  ////      if (ltr == 10) {
-  ////        wifi_list.add(SD_data);
-  ////      } else {
-  ////        SD_data += char(myFile.read());
-  ////      }
-  //    }
-  ////    wifi_list.add(SD_data);
-  //
-  //    myFile = SD.open("NAME.txt");
-  //    Serial.println("NAME opened");
-  //    while (myFile.available()) {
-  //      device_name += char(myFile.read());
-  //    }
-  //
-  //    carrier.display.fillScreen(0x0000);
-  //    carrier.display.setCursor(0, 0);
-  //    carrier.display.print(device_name);
-  //    delay(1000);
-  //
-  //    //    configure();
-  //    //    touchpage();
-  //    //    sensorsPage();
-  //    //    actuatorsPage();
-  //  } else {
-  //    myFile = SD.open("SSID.txt", FILE_WRITE);
-  //    myFile.print("");
-  //    myFile.close();
-  //
-  //    myFile = SD.open("NAME.txt", FILE_WRITE);
-  //    myFile.print("SAMANTHA");
-  //    myFile.close();
-  //
-  //    Serial.println("done.");
-  //    carrier.display.setCursor(0, 30);
-  //    carrier.display.println("Write the SSID in the SSID.txt and PASSWORD in the PSWD.txt");
-  //    carrier.display.print("Write the name of the device in the NAME.txt");
-  //    while (1);
-  //  }
+  //   open the file for reading:
+  if (SD.exists("NAME.txt")) {
+    myFile = SD.open("NAME.txt");
+    Serial.println("NAME opened");
+    while (myFile.available()) {
+      device_name += char(myFile.read());
+    }
+
+    carrier.display.fillScreen(0x0000);
+    carrier.display.setCursor(0, 0);
+    carrier.display.print(device_name);
+    delay(1000);
+
+    //    configure();
+    //    touchpage();
+    //    sensorsPage();
+    //    actuatorsPage();
+  } else {
+    myFile = SD.open("NAME.txt", FILE_WRITE);
+    myFile.print("SAMANTHA");
+    device_name = "SAMANTHA";
+    myFile.close();
+
+    Serial.println("done.");
+    carrier.display.setCursor(0, 30);
+    carrier.display.print("Named SAMANTHA");
+  }
 }
 
 void loop()
 {
-//  carrier.display.setTextColor(0xFFFF);
-  listNetworks();
+  //  carrier.display.setTextColor(0xFFFF);
+  int num = 0;
+  while (num < 10 && !connectWifi(num)) {
+    num++;
+  }
+  if (num == 10) {
+    listNetworks();
+  }
   delay(10000);
 }
 
@@ -298,75 +285,112 @@ void actuatorsPage()
 
 
 void listNetworks() {
-  Serial.println("** Scan Networks **");
   int numSsid = WiFi.scanNetworks();
 
   if (numSsid == -1) {
     Serial.println("Couldn't get a wifi connection");
+    carrier.display.setTextColor(0xFFFF);
+    carrier.display.setTextSize(5);
+    carrier.display.setCursor(0, 0);
+    carrier.display.print("                              ");
+
+    carrier.display.setTextColor(0x0000);
+    carrier.display.setTextSize(3);
+    carrier.display.setCursor(2, 0);
+    carrier.display.print("Couldn't get a wifi connection");
     while (true);
   }
+
+  carrier.display.fillScreen(0x0000);
+  carrier.display.setTextSize(3);
+
+  wifi[5] = { -1, -1, -1, -1, -1};
 
   Serial.print("number of available networks:");
   Serial.println(numSsid);
 
+  int count = 0;
   for (int thisNet = 0; thisNet < numSsid; thisNet++) {
-    Serial.print(thisNet);
-    Serial.print(") ");
-    Serial.print(WiFi.SSID(thisNet));
-    Serial.print("\tSignal: ");
-    Serial.print(WiFi.RSSI(thisNet));
-    Serial.print(" dBm");
-    Serial.print("\tEncryption: ");
-    printEncryptionType(WiFi.encryptionType(thisNet));
+    if (WiFi.encryptionType(thisNet) == ENC_TYPE_NONE && count < 5) {
+      wifi[count] = thisNet;
+      count++;
 
-  }
-}
+      Serial.print(WiFi.SSID(thisNet));
+      carrier.display.fillScreen(0x0000);
+      carrier.display.setTextSize(3);
 
-void printEncryptionType(int thisType) {
-  switch (thisType) {
-    case ENC_TYPE_WEP:
-      Serial.println("WEP");
-      break;
-
-    case ENC_TYPE_TKIP:
-      Serial.println("WPA");
-      break;
-
-    case ENC_TYPE_CCMP:
-      Serial.println("WPA2");
-      break;
-
-    case ENC_TYPE_NONE:
-      Serial.println("None");
-      break;
-
-    case ENC_TYPE_AUTO:
-      Serial.println("Auto");
-      break;
-
-    case ENC_TYPE_UNKNOWN:
-    default:
-      Serial.println("Unknown");
-      break;
-  }
-}
-
-void printMacAddress(byte mac[]) {
-  for (int i = 5; i >= 0; i--) {
-    if (mac[i] < 16) {
-      Serial.print("0");
-    }
-    Serial.print(mac[i], HEX);
-    if (i > 0) {
-      Serial.print(":");
+      carrier.display.setCursor(0 * count, 0);
+      carrier.display.print(count + " - " + Wifi.SSID(thisNet));
     }
   }
-  Serial.println();
-}
+  touchCheckCompleted = false;
+  while (!touchCheckCompleted)
+  {
+    carrier.Buttons.update();
+    if (carrier.Buttons.onTouchDown(TOUCH0))
+    {
+      WiFi.begin(Wifi.SSID(wifi[0]));
+      carrier.leds.setPixelColor(0, colorGreen);
+    }
+    else if (carrier.Buttons.onTouchUp(TOUCH1))
+    {
+       WiFi.begin(Wifi.SSID(wifi[1]));
+      carrier.leds.setPixelColor(1, colorGreen);
+    }
+    else if (carrier.Buttons.getTouch(TOUCH2))
+    {
+       WiFi.begin(Wifi.SSID(wifi[2]));
+      carrier.leds.setPixelColor(2, colorGreen);
+    }
+    else if (carrier.Buttons.onTouchUp(TOUCH3))
+    {
+       WiFi.begin(Wifi.SSID(wifi[3]));
+      carrier.leds.setPixelColor(3, colorGreen);
+    }
+    else if (carrier.Buttons.onTouchDown(TOUCH4))
+    {
+       WiFi.begin(Wifi.SSID(wifi[4]));
+      carrier.leds.setPixelColor(4, colorGreen);
+    }
+    carrier.leds.show();
+  }
 
-//void c_arr(String init_str, char fin_arr[]) {
-//  int str_len = init_str.length() + 1;
-//  char str_char[str_len];
-//  init_str.toCharArray(str_char, str_len);
-//  strcat(fin_arr, str_char);
-//}
+  bool connectWifi(int thisNet) {
+    if (WiFi.scanNetworks() > thisNet && WiFi.encryptionType(thisNet) == ENC_TYPE_NONE && SD.exists(Wifi.SSID(thisNet))) {
+
+      WiFi.begin(Wifi.SSID(thisNet));
+
+      carrier.display.setTextColor(0xFFFF);
+      carrier.display.setTextSize(5);
+      carrier.display.setCursor(0, 0);
+      carrier.display.print("                     ");
+
+      carrier.display.setTextColor(0x0000);
+      carrier.display.setTextSize(3);
+      carrier.display.setCursor(2, 0);
+      carrier.display.print(Wifi.SSID(thisNet));
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  void printMacAddress(byte mac[]) {
+    for (int i = 5; i >= 0; i--) {
+      if (mac[i] < 16) {
+        Serial.print("0");
+      }
+      Serial.print(mac[i], HEX);
+      if (i > 0) {
+        Serial.print(":");
+      }
+    }
+    Serial.println();
+  }
+
+  //void c_arr(String init_str, char fin_arr[]) {
+  //  int str_len = init_str.length() + 1;
+  //  char str_char[str_len];
+  //  init_str.toCharArray(str_char, str_len);
+  //  strcat(fin_arr, str_char);
+  //}
