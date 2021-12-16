@@ -87,6 +87,10 @@ void setup()
 
   // open the file for reading:
   if (SD.exists("SSID.txt") && SD.exists("NAME.txt")) {
+    configure();
+//    touchpage();
+    actuatorsPage();
+    
     myFile = SD.open("SSID.txt");
     Serial.println("SSID opened");
     String SD_data = "";
@@ -118,16 +122,11 @@ void setup()
     carrier.display.print(device_name);
     delay(1000);
 
-    //    configure();
-    //    touchpage();
-    //    sensorsPage();
-    //    actuatorsPage();
-
     initWifi();
     printWiFiStatus();
   } else {
     myFile = SD.open("SSID.txt", FILE_WRITE);
-    myFile.print("");
+    myFile.print("ROOM####");
     myFile.close();
 
     myFile = SD.open("NAME.txt", FILE_WRITE);

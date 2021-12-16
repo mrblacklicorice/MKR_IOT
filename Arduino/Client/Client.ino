@@ -32,8 +32,10 @@ int noteDurations[] = {
 void configure();
 void touchpage();
 void actuatorsPage();
-bool connectWifi(int thisNet);
+void connectWiFi();
 void listNetworks();
+void printMacAddress(byte mac[]);
+void print_WiFI_connections();
 //void c_arr();
 
 //Declare their flags
@@ -51,9 +53,9 @@ void setup()
   CARRIER_CASE = false;
   Serial.begin(9600);
 
-  //  while (!Serial) {
-  //    ; // wait for serial port to connect. Needed for native USB
-  //  }
+//    while (!Serial) {
+//      ; // wait for serial port to connect. Needed for native USB
+//    }
   delay(2500);
   Serial.println("Turning on");
 
@@ -79,6 +81,10 @@ void setup()
 
   //   open the file for reading:
   if (SD.exists("NAME.txt")) {
+    configure();
+    //    touchpage();
+    actuatorsPage();
+
     myFile = SD.open("NAME.txt");
     Serial.println("NAME opened");
     while (myFile.available()) {
@@ -89,11 +95,6 @@ void setup()
     carrier.display.setCursor(0, 0);
     carrier.display.print(device_name);
     delay(1000);
-
-    //    configure();
-    //    touchpage();
-    //    sensorsPage();
-    //    actuatorsPage();
   } else {
     myFile = SD.open("NAME.txt", FILE_WRITE);
     myFile.print("SAMANTHA");
@@ -108,15 +109,10 @@ void setup()
 
 void loop()
 {
-  //  carrier.display.setTextColor(0xFFFF);
-  int num = 0;
-  while (num < 10 && !connectWifi(num)) {
-    num++;
-  }
-  if (num == 10) {
-    listNetworks();
-  }
-  delay(10000);
+  carrier.display.setTextColor(0xFFFF);
+  print_WiFI_connections();
+  //listNetworks();
+  delay(500);
 }
 
 void configure()
@@ -286,6 +282,7 @@ void actuatorsPage()
 
 void listNetworks() {
   int numSsid = WiFi.scanNetworks();
+  curr_wifi = -1;
 
   if (numSsid == -1) {
     Serial.println("Couldn't get a wifi connection");
@@ -296,103 +293,191 @@ void listNetworks() {
 
     carrier.display.setTextColor(0x0000);
     carrier.display.setTextSize(3);
-    carrier.display.setCursor(2, 0);
-    carrier.display.print("Couldn't get a wifi connection");
-    while (true);
+  } else {
+    carrier.display.fillScreen(0x0000);
+
+    for (int c = 0; c < 5; c++) {
+      wifi[c] = -1;
+    }
+
+    Serial.print("number of available networks:");
+    Serial.println(numSsid);
+
+    int count = 0;
+    for (int thisNet = 0; thisNet < numSsid; thisNet++) {
+      if (WiFi.encryptionType(thisNet) == ENC_TYPE_NONE && count < 5) {
+        wifi[count] = thisNet;
+
+        Serial.println(WiFi.SSID(thisNet));
+        carrier.display.setTextSize(2);
+        carrier.display.setTextColor(0xFFFF);
+
+        carrier.display.setCursor(0 , 30 * count);
+        carrier.display.print(String(count) + " - " + String(WiFi.SSID(thisNet)));
+
+        count++;
+      }
+    }
+
+    bool done = false;
+    while (!done) {
+      carrier.Buttons.update();
+      if (carrier.Buttons.onTouchDown(TOUCH0) && wifi[0] > -1)
+      {
+        curr_wifi = 0;
+        done = true;
+      }
+      else if (carrier.Buttons.onTouchUp(TOUCH1) && wifi[1] > -1)
+      {
+        curr_wifi = 1;
+        done = true;
+      }
+      else if (carrier.Buttons.getTouch(TOUCH2) && wifi[2] > -1)
+      {
+        curr_wifi = 2;
+        done = true;
+      }
+      else if (carrier.Buttons.onTouchUp(TOUCH3) && wifi[3] > -1)
+      {
+        curr_wifi = 3;
+        done = true;
+      }
+      else if (carrier.Buttons.onTouchDown(TOUCH4) && wifi[4] > -1)
+      {
+        curr_wifi = 4;
+        done = true;
+      }
+      carrier.leds.show();
+    }
+    
+    WiFi.begin(WiFi.SSID(wifi[curr_wifi]));
+    carrier.leds.setPixelColor(curr_wifi, colorGreen);
+    delay(1000);
+    
+    Serial.println((String(WiFi.SSID(wifi[curr_wifi]))) + ".txt");
+    myFile = SD.open(String(WiFi.SSID(wifi[curr_wifi])) + ".txt", FILE_WRITE);
+    myFile.print("");
+    myFile.close();
+    
+    Serial.println("turning leds off");
+    carrier.leds.fill(carrier.leds.Color(0, 0, 0), 0, 5);
+    carrier.leds.show();
+    carrier.Buttons.update();
+    carrier.display.fillScreen(0x0000);
+    delay(10000);
+    
+    carrier.display.setTextColor(0x0000);
+    carrier.display.setTextSize(5);
+    carrier.display.setCursor(0, 0);
+    carrier.display.print("                     ");
+
+    carrier.display.setTextColor(0xFFFF);
+    carrier.display.setTextSize(3);
+    carrier.display.setCursor(0, 0);
+    carrier.display.print(WiFi.SSID(wifi[curr_wifi]));
   }
+}
+
+void connectWiFi() {
+  Serial.println("wifi connected started");
 
   carrier.display.fillScreen(0x0000);
-  carrier.display.setTextSize(3);
 
-  for (int c = 0; c < 5; c++) {
-    wifi[c] = -1;
-  }
+  bool wifi_connected = false;
+  int num = 0;
+  int total_networks = WiFi.scanNetworks();
 
-  Serial.print("number of available networks:");
-  Serial.println(numSsid);
+  while (num < 10 && !wifi_connected) {
+    if (total_networks > num && WiFi.encryptionType(num) == ENC_TYPE_NONE && SD.exists(String(WiFi.SSID(num)) + ".txt")) {
+      WiFi.begin(WiFi.SSID(num));
+      delay(1000);
 
-  int count = 0;
-  for (int thisNet = 0; thisNet < numSsid; thisNet++) {
-    if (WiFi.encryptionType(thisNet) == ENC_TYPE_NONE && count < 5) {
-      wifi[count] = thisNet;
-      count++;
-
-      Serial.print(WiFi.SSID(thisNet));
-      carrier.display.fillScreen(0x0000);
-      carrier.display.setTextSize(3);
-
-      carrier.display.setCursor(0 * count, 0);
-      carrier.display.print(count + " - " + WiFi.SSID(thisNet));
-    }
-  }
-  touchCheckCompleted = false;
-  while (!touchCheckCompleted)
-  {
-    carrier.Buttons.update();
-    if (carrier.Buttons.onTouchDown(TOUCH0))
-    {
-      WiFi.begin(WiFi.SSID(wifi[0]));
-      carrier.leds.setPixelColor(0, colorGreen);
-    }
-    else if (carrier.Buttons.onTouchUp(TOUCH1))
-    {
-      WiFi.begin(WiFi.SSID(wifi[1]));
-      carrier.leds.setPixelColor(1, colorGreen);
-    }
-    else if (carrier.Buttons.getTouch(TOUCH2))
-    {
-      WiFi.begin(WiFi.SSID(wifi[2]));
-      carrier.leds.setPixelColor(2, colorGreen);
-    }
-    else if (carrier.Buttons.onTouchUp(TOUCH3))
-    {
-      WiFi.begin(WiFi.SSID(wifi[3]));
-      carrier.leds.setPixelColor(3, colorGreen);
-    }
-    else if (carrier.Buttons.onTouchDown(TOUCH4))
-    {
-      WiFi.begin(WiFi.SSID(wifi[4]));
-      carrier.leds.setPixelColor(4, colorGreen);
-    }
-    carrier.leds.show();
-  }
-
-  bool connectWiFi(int thisNet) {
-    if (WiFi.scanNetworks() > thisNet && WiFi.encryptionType(thisNet) == ENC_TYPE_NONE && SD.exists(WiFi.SSID(thisNet))) {
-
-      WiFi.begin(WiFi.SSID(thisNet));
-
-      carrier.display.setTextColor(0xFFFF);
+      carrier.display.setTextColor(0x0000);
       carrier.display.setTextSize(5);
       carrier.display.setCursor(0, 0);
       carrier.display.print("                     ");
 
+      carrier.display.setTextColor(0xFFFF);
+      carrier.display.setTextSize(3);
+      carrier.display.setCursor(0, 0);
+      carrier.display.print(WiFi.SSID(num));
+      wifi_connected = true;
+    } else {
+      Serial.print("Not connected to: ");
+      Serial.println(WiFi.SSID(num));
+      wifi_connected = false;
+    }
+    num++;
+  }
+
+  if (num == 10) {
+    listNetworks();
+  }
+}
+
+void printMacAddress(byte mac[]) {
+  for (int i = 5; i >= 0; i--) {
+    if (mac[i] < 16) {
+      Serial.print("0");
+    }
+    Serial.print(mac[i], HEX);
+    if (i > 0) {
+      Serial.print(":");
+    }
+  }
+  Serial.println();
+}
+
+void print_WiFI_connections() {
+  int status = WiFi.status();
+  if (status != WL_CONNECTED) {
+    carrier.display.setTextColor(0x0000);
+    carrier.display.setTextSize(5);
+    carrier.display.setCursor(0, 60);
+    carrier.display.print("                     ");
+
+    carrier.display.setTextColor(0xF800);
+    carrier.display.setTextSize(3);
+    carrier.display.setCursor(0, 60);
+    carrier.display.print("Not Connected");
+
+    connectWiFi();
+  } else {
+      carrier.display.setTextColor(0x0000);
+      carrier.display.setTextSize(5);
+      carrier.display.setCursor(0, 0);
+      carrier.display.print("                     ");
+
+      carrier.display.setTextColor(0xFFFF);
+      carrier.display.setTextSize(3);
+      carrier.display.setCursor(0, 0);
+      carrier.display.print(WiFi.SSID());
+
       carrier.display.setTextColor(0x0000);
       carrier.display.setTextSize(3);
-      carrier.display.setCursor(2, 0);
-      carrier.display.print(WiFi.SSID(thisNet));
-      return true;
-    } else {
-      return false;
-    }
-  }
+      carrier.display.setCursor(0, 30);
+      carrier.display.print("           ");
 
-  void printMacAddress(byte mac[]) {
-    for (int i = 5; i >= 0; i--) {
-      if (mac[i] < 16) {
-        Serial.print("0");
-      }
-      Serial.print(mac[i], HEX);
-      if (i > 0) {
-        Serial.print(":");
-      }
-    }
-    Serial.println();
-  }
+      carrier.display.setTextColor(0xFFFF);
+      carrier.display.setTextSize(3);
+      carrier.display.setCursor(0, 30);
+      carrier.display.print(WiFi.RSSI());
+    
+    carrier.display.setTextColor(0x0000);
+    carrier.display.setTextSize(5);
+    carrier.display.setCursor(0, 60);
+    carrier.display.print("                     ");
 
-  //void c_arr(String init_str, char fin_arr[]) {
-  //  int str_len = init_str.length() + 1;
-  //  char str_char[str_len];
-  //  init_str.toCharArray(str_char, str_len);
-  //  strcat(fin_arr, str_char);
-  //}
+    carrier.display.setTextColor(0x07E0);
+    carrier.display.setTextSize(3);
+    carrier.display.setCursor(0, 60);
+    carrier.display.print("Connected");
+  }
+}
+
+//void c_arr(String init_str, char fin_arr[]) {
+//  int str_len = init_str.length() + 1;
+//  char str_char[str_len];
+//  init_str.toCharArray(str_char, str_len);
+//  strcat(fin_arr, str_char);
+//}
